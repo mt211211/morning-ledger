@@ -104,11 +104,48 @@ export async function answerQuestion(env, question, stories) {
   return { answer, citations: top };
 }
 
+export async function answerArticleQuestion(env, question, story) {
+  const questionType = classifyQuestion(question);
+  if (questionType === "personal-advice") {
+    return {
+      answer: "I cannot provide personalized investment advice or tell you what to buy or sell. I can explain what this article says, why it may matter, and which factors a reader may want to research further.",
+      citations: [story]
+    };
+  }
+
+  if (env.ENABLE_AI === "true" && env.AI) {
+    const result = await env.AI.run(AI_MODEL, {
+      messages: [
+        {
+          role: "system",
+          content: "Answer using only the single article context provided. Keep the answer tied to that article, even if the user asks a broader question. If the question asks for a definition, explain the concept only as it relates to the article. Cite the article as [1]. Do not use or name outside sources. Do not provide personalized investment advice."
+        },
+        {
+          role: "user",
+          content: `Article [1]\nTitle: ${story.title}\nSource: ${story.source}\nCategory: ${story.category}\nSummary: ${story.summary}\nURL: ${story.url}\n\nQuestion: ${question}`
+        }
+      ],
+      max_tokens: 380
+    });
+    return { answer: stripUnsupportedSources(result.response), citations: [story] };
+  }
+
+  return {
+    answer: [
+      `This answer is limited to the article "${story.title}".`,
+      `${story.summary}`,
+      "Open the article link for the complete reporting. AI answers can be enabled during Cloudflare deployment."
+    ].join("\n\n"),
+    citations: [story]
+  };
+}
+
 function stripUnsupportedSources(answer) {
   return String(answer || "")
     .split("\n")
     .filter((line) => !/^\s*(source|sources)\s*:/i.test(line))
     .join("\n")
+    .replace(/\s+(source|sources)\s*:\s*[^.]+\.?$/i, "")
     .trim();
 }
 

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseFeed, stableId, stripHtml, truncate } from "../src/news.js";
-import { answerQuestion, classifyQuestion, rankStories } from "../src/chat.js";
+import { answerArticleQuestion, answerQuestion, classifyQuestion, rankStories } from "../src/chat.js";
 
 test("parses RSS stories into compact feed cards", () => {
   const items = parseFeed(`
@@ -59,6 +59,45 @@ test("strips unsupported source lines from education model answers", async () =>
     }
   }, "What is crypto?", []);
   assert.equal(result.answer, "General explanation.");
+});
+
+test("article scoped answers cite only the selected article", async () => {
+  const story = {
+    id: "story-1",
+    title: "Bitcoin update",
+    summary: "Bitcoin moved after investors reacted to market news.",
+    url: "https://example.com/bitcoin",
+    source: "Example",
+    category: "crypto"
+  };
+  const result = await answerArticleQuestion({}, "What is crypto?", story);
+  assert.match(result.answer, /limited to the article/i);
+  assert.deepEqual(result.citations, [story]);
+});
+
+test("article scoped AI answers receive one-article context", async () => {
+  let prompt = "";
+  const story = {
+    id: "story-1",
+    title: "Company earnings",
+    summary: "The company reported earnings.",
+    url: "https://example.com/earnings",
+    source: "Example",
+    category: "companies"
+  };
+  const result = await answerArticleQuestion({
+    ENABLE_AI: "true",
+    AI: {
+      run: async (_model, request) => {
+        prompt = request.messages.at(-1).content;
+        return { response: "It matters because of earnings. Source: Outside" };
+      }
+    }
+  }, "Why does this matter?", story);
+  assert.match(prompt, /Article \[1\]/);
+  assert.match(prompt, /Company earnings/);
+  assert.doesNotMatch(result.answer, /Source:/);
+  assert.equal(result.citations.length, 1);
 });
 
 test("text helpers remain deterministic", () => {

@@ -19,7 +19,7 @@
         <h1>Morning Ledger</h1>
       </div>
       <button class="icon-button" id="refreshButton" aria-label="Refresh news">
-        <span id="refreshIcon">↻</span>
+        <span id="refreshIcon">R</span>
       </button>
     </header>
 
@@ -52,23 +52,24 @@
       <section class="story-list" id="stories" aria-live="polite"></section>
     </main>
 
-    <button class="ask-fab" id="openChat">Ask Ledger <span>✦</span></button>
+    <button class="ask-fab" id="openChat">Ask Ledger <span>*</span></button>
 
     <dialog id="chatDialog">
       <section class="chat-shell">
         <header class="chat-header">
           <div>
-            <p class="eyebrow">Grounded in your digest</p>
+            <p class="eyebrow" id="chatScope">Grounded in your digest</p>
             <h2>Ask Ledger</h2>
           </div>
-          <button class="close-button" id="closeChat" aria-label="Close chat">×</button>
+          <button class="close-button" id="closeChat" aria-label="Close chat">x</button>
         </header>
+        <div class="suggestions" id="suggestions" hidden></div>
         <div class="chat-messages" id="messages">
           <div class="message assistant">Ask me what changed today, why a story matters, or how several updates connect. I will link the sources I use.</div>
         </div>
         <form class="chat-form" id="chatForm">
           <input id="question" maxlength="500" placeholder="What should I know about markets today?" required>
-          <button aria-label="Send question">↑</button>
+          <button aria-label="Send question">Go</button>
         </form>
       </section>
     </dialog>
@@ -86,7 +87,7 @@
             <span class="source"></span>
             <span class="source-tier"></span>
           </div>
-          <a target="_blank" rel="noopener noreferrer">Read article <span>↗</span></a>
+          <a target="_blank" rel="noopener noreferrer">Read article <span>open</span></a>
         </footer>
         <button class="story-question">Ask AI about this</button>
       </article>

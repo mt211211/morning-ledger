@@ -1,5 +1,5 @@
 import { CATEGORIES, DEMO_STORIES } from "./config.js";
-import { answerQuestion } from "./chat.js";
+import { answerArticleQuestion, answerQuestion } from "./chat.js";
 import { collectStories, saveStories } from "./news.js";
 
 export default {
@@ -48,6 +48,12 @@ async function chatResponse(request, env) {
   const body = await request.json();
   const question = String(body.question || "").trim().slice(0, 500);
   if (!question) return json({ error: "Please enter a question." }, 400);
+  const storyId = String(body.storyId || "").trim();
+  if (storyId) {
+    const story = await getStory(env, storyId);
+    if (!story) return json({ error: "I could not find that article in the current digest." }, 404);
+    return json(await answerArticleQuestion(env, question, story));
+  }
   const stories = await listStories(env, "all", 80);
   return json(await answerQuestion(env, question, stories));
 }
@@ -81,6 +87,11 @@ async function listStories(env, category = "all", limit = 60) {
   const statement = env.DB.prepare(`SELECT * FROM stories ${where} ORDER BY published_at DESC LIMIT ?`);
   const result = category === "all" ? await statement.bind(limit).all() : await statement.bind(category, limit).all();
   return result.results;
+}
+
+async function getStory(env, id) {
+  if (!env.DB) return DEMO_STORIES.find((story) => story.id === id) || null;
+  return env.DB.prepare("SELECT * FROM stories WHERE id = ?").bind(id).first();
 }
 
 async function getSetting(env, key) {
