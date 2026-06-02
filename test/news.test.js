@@ -51,6 +51,16 @@ test("answers general crypto question without digest citations in preview mode",
   assert.equal(result.citations.length, 0);
 });
 
+test("strips unsupported source lines from education model answers", async () => {
+  const result = await answerQuestion({
+    ENABLE_AI: "true",
+    AI: {
+      run: async () => ({ response: "General explanation.\n\nSource: Example" })
+    }
+  }, "What is crypto?", []);
+  assert.equal(result.answer, "General explanation.");
+});
+
 test("text helpers remain deterministic", () => {
   assert.equal(stripHtml("<p>Hello&nbsp;world</p>"), "Hello world");
   assert.equal(stableId("abc"), stableId("abc"));

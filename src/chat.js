@@ -55,13 +55,13 @@ export async function answerQuestion(env, question, stories) {
       messages: [
         {
           role: "system",
-          content: "You are Morning Ledger, a finance education assistant. Explain concepts clearly and briefly. If you use digest context, cite it. If the answer is general education, say it is a general explanation, not today's news. Do not provide personalized investment advice."
+          content: "You are Morning Ledger, a finance education assistant. Explain concepts clearly and briefly. If the answer is general education, say it is a general explanation, not today's news. Do not cite or name external sources unless source context was explicitly provided. Do not include a Source line. Do not provide personalized investment advice."
         },
         { role: "user", content: `Question: ${question}` }
       ],
       max_tokens: 360
     });
-    return { answer: result.response, citations: [] };
+    return { answer: stripUnsupportedSources(result.response), citations: [] };
   }
 
   if (questionType === "education") {
@@ -102,6 +102,14 @@ export async function answerQuestion(env, question, stories) {
     "Open the cited sources for the complete reporting. AI answers can be enabled during Cloudflare deployment."
   ].join("\n\n");
   return { answer, citations: top };
+}
+
+function stripUnsupportedSources(answer) {
+  return String(answer || "")
+    .split("\n")
+    .filter((line) => !/^\s*(source|sources)\s*:/i.test(line))
+    .join("\n")
+    .trim();
 }
 
 function generalFinanceAnswer(question) {

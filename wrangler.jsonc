@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "morning-ledger",
+  "name": "app",
   "main": "src/index.js",
   "compatibility_date": "2026-06-02",
   "assets": {
