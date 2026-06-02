@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "morning-ledger",
+  "main": "src/index.js",
+  "compatibility_date": "2026-06-02",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "morning-ledger",
+      "database_id": "0c5cdd19-c22e-4b2a-ab4e-0d4ddbefa768"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
+  "vars": {
+    "DEFAULT_TIMEZONE": "Europe/London",
+    "ENABLE_AI": "true"
+  },
+  "triggers": {
+    "crons": ["*/30 * * * *"]
+  }
+}
