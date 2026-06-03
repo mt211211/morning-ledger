@@ -9,6 +9,7 @@ Production: https://app.morning-ledger.workers.dev
 ## Features
 
 - Bite-sized finance summaries with direct links to original articles
+- Swipeable welcome cover for first-time users
 - Markets, company news, economy, personal finance, and crypto filters
 - Scheduled refresh at 07:30 local time and manual refresh at any time
 - Grounded chat responses with source links
@@ -21,7 +22,9 @@ Cloudflare Cron Triggers run in UTC. Morning Ledger runs every 30 minutes and re
 
 ## Abuse Controls
 
-Ask Ledger is article-scoped and rate-limited per IP address. The default is `60` AI questions per UTC day, configured by `AI_DAILY_IP_LIMIT` in `wrangler.jsonc`. If the limit is reached, users see a friendly retry-later message.
+Ask Ledger is article-scoped and rate-limited per anonymous browser device. The default is `60` AI questions per UTC day, configured by `AI_DAILY_DEVICE_LIMIT` in `wrangler.jsonc`. If the limit is reached, users see a friendly retry-later message.
+
+The device ID is stored in browser local storage and avoids one person on a shared network limiting everyone else. It is not a login system, so determined abuse can still be escalated with Turnstile.
 
 Turnstile is optional. Set `TURNSTILE_SITE_KEY` in `wrangler.jsonc` and `TURNSTILE_SECRET_KEY` as a Cloudflare secret to challenge users who hit the rate limit.
 

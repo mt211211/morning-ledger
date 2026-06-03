@@ -15,6 +15,16 @@
 body { margin: 0; background: var(--paper); color: var(--ink); padding-bottom: 92px; }
 button, input { font: inherit; }
 button { cursor: pointer; }
+.onboarding-cover { background: radial-gradient(circle at 25% 15%, rgba(217,170,86,.32), transparent 28%), linear-gradient(150deg, #17392f, #0b211b 68%); border-radius: 0 0 24px 24px; box-shadow: 0 20px 45px rgba(8,24,19,.34); color: white; display: flex; flex-direction: column; inset: 0; justify-content: center; min-height: 100dvh; padding: calc(26px + env(safe-area-inset-top)) 24px calc(28px + env(safe-area-inset-bottom)); position: fixed; touch-action: none; transform-origin: top center; transition: transform .42s cubic-bezier(.2,.8,.2,1), opacity .3s ease, visibility .3s ease; z-index: 20; }
+.onboarding-cover.dragging { transition: none; }
+.onboarding-cover.dismissed { opacity: 0; pointer-events: none; transform: translateY(-104%); visibility: hidden; }
+.cover-grip { align-self: center; background: rgba(255,255,255,.32); border-radius: 99px; height: 5px; margin-bottom: auto; width: 54px; }
+.onboarding-cover h2 { font-family: Georgia, serif; font-size: 43px; line-height: 1.02; margin: 28px 0 16px; max-width: 430px; }
+.cover-copy { color: #d7e2dd; font-size: 15px; line-height: 1.55; max-width: 430px; }
+.cover-points { display: grid; gap: 8px; margin: 24px 0; }
+.cover-points span { background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.14); border-radius: 13px; color: #f5ead7; font-size: 13px; font-weight: 800; padding: 11px 12px; }
+#startReading { align-self: flex-start; background: var(--accent); border: 0; border-radius: 99px; color: #14251f; font-weight: 900; padding: 13px 18px; }
+.cover-hint { color: #bfd2ca; font-size: 12px; margin: auto 0 0; }
 .topbar { align-items: center; background: var(--green-dark); color: white; display: flex; justify-content: space-between; padding: calc(20px + env(safe-area-inset-top)) 20px 16px; }
 .eyebrow { color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: 1.5px; margin: 0 0 5px; text-transform: uppercase; }
 h1, h2, h3, p { margin-top: 0; }

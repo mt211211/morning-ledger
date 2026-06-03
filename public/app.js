@@ -9,18 +9,26 @@ const suggestions = document.querySelector("#suggestions");
 const notifyButton = document.querySelector("#notifyButton");
 const turnstileBox = document.querySelector("#turnstileBox");
 const turnstileWidget = document.querySelector("#turnstileWidget");
+const onboardingCover = document.querySelector("#onboardingCover");
+const startReading = document.querySelector("#startReading");
 
 let category = "all";
 let activeStory = null;
 let vapidPublicKey = "";
 let turnstileSiteKey = "";
 let activePushSubscription = null;
+let onboardingStartY = 0;
+let onboardingProgress = 0;
 
 const ARTICLE_QUESTIONS = [
   "Why does this matter?",
   "What are the key risks?",
   "What happens next?"
 ];
+
+const CLIENT_ID_KEY = "morning-ledger-client-id";
+const ONBOARDED_KEY = "morning-ledger-onboarded";
+const clientId = getClientId();
 
 document.querySelector("#today").textContent = new Intl.DateTimeFormat(undefined, {
   weekday: "long", month: "long", day: "numeric"
@@ -39,6 +47,14 @@ document.querySelector("#refreshButton").addEventListener("click", refreshNews);
 document.querySelector("#closeChat").addEventListener("click", () => dialog.close());
 document.querySelector("#chatForm").addEventListener("submit", askQuestion);
 notifyButton.addEventListener("click", enableMorningNotification);
+startReading.addEventListener("click", () => dismissOnboarding(true));
+onboardingCover.addEventListener("pointerdown", startOnboardingDrag);
+onboardingCover.addEventListener("pointermove", moveOnboardingDrag);
+onboardingCover.addEventListener("pointerup", endOnboardingDrag);
+onboardingCover.addEventListener("pointercancel", endOnboardingDrag);
+if (localStorage.getItem(ONBOARDED_KEY) === "true") {
+  dismissOnboarding(false);
+}
 
 async function loadNews() {
   const response = await fetch(`/api/news?category=${category}`);
@@ -126,7 +142,7 @@ async function submitQuestion(question, storyId, turnstileToken = "", retry = fa
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ question, storyId, turnstileToken })
+      body: JSON.stringify({ question, storyId, turnstileToken, clientId })
     });
     const data = await response.json();
     loading.textContent = data.answer || data.error;
@@ -259,6 +275,47 @@ function urlBase64ToUint8Array(value) {
   const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(base64);
   return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
+}
+
+function getClientId() {
+  const existing = localStorage.getItem(CLIENT_ID_KEY);
+  if (existing) return existing;
+  const value = crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem(CLIENT_ID_KEY, value);
+  return value;
+}
+
+function startOnboardingDrag(event) {
+  onboardingStartY = event.clientY;
+  onboardingCover.setPointerCapture(event.pointerId);
+  onboardingCover.classList.add("dragging");
+}
+
+function moveOnboardingDrag(event) {
+  if (!onboardingCover.classList.contains("dragging")) return;
+  const delta = Math.max(0, onboardingStartY - event.clientY);
+  onboardingProgress = Math.min(1, delta / Math.max(1, window.innerHeight * 0.72));
+  onboardingCover.style.transform = `translateY(${-onboardingProgress * 92}%) rotateX(${onboardingProgress * 4}deg)`;
+  onboardingCover.style.opacity = String(1 - onboardingProgress * 0.18);
+}
+
+function endOnboardingDrag() {
+  if (!onboardingCover.classList.contains("dragging")) return;
+  onboardingCover.classList.remove("dragging");
+  if (onboardingProgress > 0.36) {
+    dismissOnboarding(true);
+  } else {
+    onboardingProgress = 0;
+    onboardingCover.style.transform = "";
+    onboardingCover.style.opacity = "";
+  }
+}
+
+function dismissOnboarding(remember) {
+  if (remember) localStorage.setItem(ONBOARDED_KEY, "true");
+  onboardingCover.classList.add("dismissed");
+  onboardingCover.style.transform = "";
+  onboardingCover.style.opacity = "";
 }
 
 fetch("/api/preferences", {

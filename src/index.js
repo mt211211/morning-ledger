@@ -59,7 +59,7 @@ async function chatResponse(request, env) {
   const storyId = String(body.storyId || "").trim();
   if (!storyId) return json({ error: "Choose an article first, then ask Ledger about it." }, 400);
 
-  const rateLimit = await checkAiRateLimit(request, env, body.turnstileToken);
+  const rateLimit = await checkAiRateLimit(request, env, body.clientId, body.turnstileToken);
   if (!rateLimit.allowed) {
     return json({
       error: "You've reached today's Ask Ledger limit. Please try again later.",
@@ -143,11 +143,12 @@ async function getSetting(env, key) {
   return row?.value || null;
 }
 
-async function checkAiRateLimit(request, env, turnstileToken) {
+async function checkAiRateLimit(request, env, clientId, turnstileToken) {
   if (!env.DB) return { allowed: true };
-  const limit = Math.max(1, Number(env.AI_DAILY_IP_LIMIT || 60));
+  const limit = Math.max(1, Number(env.AI_DAILY_DEVICE_LIMIT || env.AI_DAILY_IP_LIMIT || 60));
   const ip = request.headers.get("CF-Connecting-IP") || request.headers.get("x-forwarded-for") || "local";
-  const clientKey = await sha256Hex(`${ip}:${request.headers.get("user-agent") || ""}`);
+  const deviceId = String(clientId || "").match(/^[a-zA-Z0-9_-]{16,80}$/) ? clientId : "";
+  const clientKey = await sha256Hex(deviceId ? `device:${deviceId}` : `fallback:${ip}:${request.headers.get("user-agent") || ""}`);
   const windowStart = new Date().toISOString().slice(0, 10);
   const now = new Date().toISOString();
   const row = await env.DB.prepare(
