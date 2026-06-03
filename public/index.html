@@ -15,14 +15,16 @@
   <body>
     <section class="onboarding-cover" id="onboardingCover" aria-label="Welcome to Morning Ledger">
       <div class="cover-grip"></div>
-      <h2>Morning Ledger</h2>
+      <div class="cover-brand">
+        <img src="/icons/icon-192.svg" alt="" width="52" height="52">
+        <h2>Morning Ledger</h2>
+      </div>
       <p class="cover-copy">Finance news delivered every morning.</p>
       <p class="cover-hint">Drag upward to peek at today's briefing.</p>
     </section>
 
     <header class="topbar">
       <div>
-        <p class="eyebrow">Your finance briefing</p>
         <h1>Morning Ledger</h1>
       </div>
       <button class="icon-button" id="refreshButton" aria-label="Refresh news">
@@ -52,7 +54,6 @@
 
       <section class="section-heading">
         <div>
-          <p class="eyebrow">Daily briefing</p>
           <h2>Latest stories</h2>
         </div>
         <span id="storyCount"></span>
