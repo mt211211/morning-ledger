@@ -27,3 +27,19 @@ CREATE TABLE IF NOT EXISTS refresh_runs (
   status TEXT NOT NULL,
   details TEXT
 );
+
+CREATE TABLE IF NOT EXISTS ai_rate_limits (
+  client_key TEXT NOT NULL,
+  window_start TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (client_key, window_start)
+);
+
+CREATE TABLE IF NOT EXISTS notification_subscriptions (
+  endpoint TEXT PRIMARY KEY,
+  subscription_json TEXT NOT NULL,
+  timezone TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_sent_at TEXT
+);

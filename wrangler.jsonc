@@ -19,7 +19,10 @@
   },
   "vars": {
     "DEFAULT_TIMEZONE": "Europe/London",
-    "ENABLE_AI": "true"
+    "ENABLE_AI": "true",
+    "AI_DAILY_IP_LIMIT": "60",
+    "TURNSTILE_SITE_KEY": "",
+    "VAPID_PUBLIC_KEY": ""
   },
   "triggers": {
     "crons": ["*/30 * * * *"]

@@ -31,6 +31,7 @@
           <span class="pulse"></span>
           <span id="refreshStatus">Checking your latest digest...</span>
         </div>
+        <button class="notify-button" id="notifyButton" type="button" hidden>Notify me at 07:30</button>
       </section>
 
       <nav class="chips" aria-label="Finance topics">
@@ -52,8 +53,6 @@
       <section class="story-list" id="stories" aria-live="polite"></section>
     </main>
 
-    <button class="ask-fab" id="openChat">Ask Ledger <span>*</span></button>
-
     <dialog id="chatDialog">
       <section class="chat-shell">
         <header class="chat-header">
@@ -64,9 +63,11 @@
           <button class="close-button" id="closeChat" aria-label="Close chat">x</button>
         </header>
         <div class="suggestions" id="suggestions" hidden></div>
-        <div class="chat-messages" id="messages">
-          <div class="message assistant">Ask me what changed today, why a story matters, or how several updates connect. I will link the sources I use.</div>
+        <div class="turnstile-box" id="turnstileBox" hidden>
+          <p>Quick abuse check, then Ledger can try again.</p>
+          <div id="turnstileWidget"></div>
         </div>
+        <div class="chat-messages" id="messages"></div>
         <form class="chat-form" id="chatForm">
           <input id="question" maxlength="500" placeholder="What should I know about markets today?" required>
           <button aria-label="Send question">Go</button>
@@ -81,7 +82,7 @@
           <time></time>
         </div>
         <h3></h3>
-        <p class="summary"></p>
+        <ul class="summary-list"></ul>
         <footer>
           <div>
             <span class="source"></span>
@@ -89,7 +90,7 @@
           </div>
           <a target="_blank" rel="noopener noreferrer">Read article <span>open</span></a>
         </footer>
-        <button class="story-question">Ask AI about this</button>
+        <button class="story-question">Ask Ledger</button>
       </article>
     </template>
     <script type="module" src="/app.js"></script>

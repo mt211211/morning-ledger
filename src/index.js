@@ -1,5 +1,5 @@
 import { CATEGORIES, DEMO_STORIES } from "./config.js";
-import { answerArticleQuestion, answerQuestion } from "./chat.js";
+import { answerArticleQuestion } from "./chat.js";
 import { collectStories, saveStories } from "./news.js";
 
 export default {
@@ -9,6 +9,7 @@ export default {
     if (url.pathname === "/api/refresh" && request.method === "POST") return refreshResponse(env, "manual");
     if (url.pathname === "/api/chat" && request.method === "POST") return chatResponse(request, env);
     if (url.pathname === "/api/preferences" && request.method === "POST") return preferenceResponse(request, env);
+    if (url.pathname === "/api/notifications" && request.method === "POST") return notificationResponse(request, env);
     return env.ASSETS.fetch(request);
   },
 
@@ -20,7 +21,13 @@ export default {
 async function newsResponse(env, url) {
   const category = CATEGORIES.includes(url.searchParams.get("category")) ? url.searchParams.get("category") : "all";
   const stories = await listStories(env, category);
-  return json({ stories, updated_at: await getSetting(env, "last_refresh"), demo: !env.DB });
+  return json({
+    stories: stories.map((story) => ({ ...story, bullets: storyBullets(story) })),
+    updated_at: await getSetting(env, "last_refresh"),
+    demo: !env.DB,
+    turnstile_site_key: env.TURNSTILE_SITE_KEY || "",
+    vapid_public_key: env.VAPID_PUBLIC_KEY || ""
+  });
 }
 
 async function refreshResponse(env, triggerName) {
@@ -49,13 +56,19 @@ async function chatResponse(request, env) {
   const question = String(body.question || "").trim().slice(0, 500);
   if (!question) return json({ error: "Please enter a question." }, 400);
   const storyId = String(body.storyId || "").trim();
-  if (storyId) {
-    const story = await getStory(env, storyId);
-    if (!story) return json({ error: "I could not find that article in the current digest." }, 404);
-    return json(await answerArticleQuestion(env, question, story));
+  if (!storyId) return json({ error: "Choose an article first, then ask Ledger about it." }, 400);
+
+  const rateLimit = await checkAiRateLimit(request, env, body.turnstileToken);
+  if (!rateLimit.allowed) {
+    return json({
+      error: "You've reached today's Ask Ledger limit. Please try again later.",
+      retry_later: true
+    }, 429);
   }
-  const stories = await listStories(env, "all", 80);
-  return json(await answerQuestion(env, question, stories));
+
+  const story = await getStory(env, storyId);
+  if (!story) return json({ error: "I could not find that article in the current digest." }, 404);
+  return json(await answerArticleQuestion(env, question, story));
 }
 
 async function preferenceResponse(request, env) {
@@ -68,6 +81,25 @@ async function preferenceResponse(request, env) {
   }
   if (env.DB) await setSetting(env, "timezone", timezone);
   return json({ timezone });
+}
+
+async function notificationResponse(request, env) {
+  if (!env.DB) return json({ ok: true, preview: true });
+  const body = await request.json();
+  const timezone = String(body.timezone || env.DEFAULT_TIMEZONE || "UTC").slice(0, 80);
+  const subscription = body.subscription;
+  if (!subscription?.endpoint) return json({ error: "Missing push subscription." }, 400);
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: timezone }).format();
+  } catch {
+    return json({ error: "Invalid timezone." }, 400);
+  }
+  await env.DB.prepare(`
+    INSERT OR REPLACE INTO notification_subscriptions
+    (endpoint, subscription_json, timezone, created_at, last_sent_at)
+    VALUES (?, ?, ?, COALESCE((SELECT created_at FROM notification_subscriptions WHERE endpoint = ?), ?), NULL)
+  `).bind(subscription.endpoint, JSON.stringify(subscription), timezone, subscription.endpoint, new Date().toISOString()).run();
+  return json({ ok: true, message: "Morning notification saved." });
 }
 
 async function scheduledRefresh(env) {
@@ -98,6 +130,71 @@ async function getSetting(env, key) {
   if (!env.DB) return null;
   const row = await env.DB.prepare("SELECT value FROM settings WHERE key = ?").bind(key).first();
   return row?.value || null;
+}
+
+async function checkAiRateLimit(request, env, turnstileToken) {
+  if (!env.DB) return { allowed: true };
+  const limit = Math.max(1, Number(env.AI_DAILY_IP_LIMIT || 60));
+  const ip = request.headers.get("CF-Connecting-IP") || request.headers.get("x-forwarded-for") || "local";
+  const clientKey = await sha256Hex(`${ip}:${request.headers.get("user-agent") || ""}`);
+  const windowStart = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString();
+  const row = await env.DB.prepare(
+    "SELECT count FROM ai_rate_limits WHERE client_key = ? AND window_start = ?"
+  ).bind(clientKey, windowStart).first();
+  if ((row?.count || 0) >= limit) {
+    const passedTurnstile = await verifyTurnstile(env, turnstileToken, ip);
+    if (!passedTurnstile) return { allowed: false };
+  }
+  await env.DB.prepare(`
+    INSERT INTO ai_rate_limits (client_key, window_start, count, updated_at)
+    VALUES (?, ?, 1, ?)
+    ON CONFLICT(client_key, window_start)
+    DO UPDATE SET count = count + 1, updated_at = excluded.updated_at
+  `).bind(clientKey, windowStart, now).run();
+  return { allowed: true };
+}
+
+async function verifyTurnstile(env, token, ip) {
+  if (!env.TURNSTILE_SECRET_KEY || !token) return false;
+  const form = new FormData();
+  form.set("secret", env.TURNSTILE_SECRET_KEY);
+  form.set("response", token);
+  form.set("remoteip", ip);
+  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    body: form
+  });
+  const result = await response.json();
+  return Boolean(result.success);
+}
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(value);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function storyBullets(story) {
+  const cleaned = String(story.summary || "")
+    .replace(new RegExp(`^${escapeRegExp(story.title)}[.\\s-]*`, "i"), "")
+    .replace(/open the source to read the full update\.?/i, "")
+    .trim();
+  const sentences = cleaned
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  const first = sentences[0] || `${story.source} published an update related to ${story.category.replace("-", " ")}.`;
+  const second = sentences[1] || `The story is categorized under ${story.category.replace("-", " ")} and may matter to readers tracking that area.`;
+  return [shortBullet(first), shortBullet(second)];
+}
+
+function shortBullet(value) {
+  return value.length > 130 ? `${value.slice(0, 127).trim()}...` : value;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function setSetting(env, key, value) {

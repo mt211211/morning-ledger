@@ -18,6 +18,16 @@ Production: https://app.morning-ledger.workers.dev
 
 Cloudflare Cron Triggers run in UTC. Morning Ledger runs every 30 minutes and refreshes only when the stored IANA timezone reaches 07:30, including daylight-saving changes.
 
+## Abuse Controls
+
+Ask Ledger is article-scoped and rate-limited per IP address. The default is `60` AI questions per UTC day, configured by `AI_DAILY_IP_LIMIT` in `wrangler.jsonc`. If the limit is reached, users see a friendly retry-later message.
+
+Turnstile is optional. Set `TURNSTILE_SITE_KEY` in `wrangler.jsonc` and `TURNSTILE_SECRET_KEY` as a Cloudflare secret to challenge users who hit the rate limit.
+
+## Notifications
+
+The schema and client subscription path are ready for iOS PWA Web Push, but production push sending requires VAPID keys and a Web Push sender. Do not commit VAPID private keys. Store private keys as Cloudflare secrets.
+
 ## Privacy and repository hygiene
 
 Do not commit runtime news, local databases, chat history, secrets, or API keys. Cloudflare stores deployed data in D1 and environment secrets. The repository contains source code and schema only.
