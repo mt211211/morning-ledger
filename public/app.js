@@ -27,7 +27,6 @@ const ARTICLE_QUESTIONS = [
 ];
 
 const CLIENT_ID_KEY = "morning-ledger-client-id";
-const ONBOARDED_KEY = "morning-ledger-onboarded";
 const clientId = getClientId();
 
 document.querySelector("#today").textContent = new Intl.DateTimeFormat(undefined, {
@@ -52,9 +51,6 @@ onboardingCover.addEventListener("pointerdown", startOnboardingDrag);
 onboardingCover.addEventListener("pointermove", moveOnboardingDrag);
 onboardingCover.addEventListener("pointerup", endOnboardingDrag);
 onboardingCover.addEventListener("pointercancel", endOnboardingDrag);
-if (localStorage.getItem(ONBOARDED_KEY) === "true") {
-  dismissOnboarding(false);
-}
 
 async function loadNews() {
   const response = await fetch(`/api/news?category=${category}`);
@@ -312,7 +308,6 @@ function endOnboardingDrag() {
 }
 
 function dismissOnboarding(remember) {
-  if (remember) localStorage.setItem(ONBOARDED_KEY, "true");
   onboardingCover.classList.add("dismissed");
   onboardingCover.style.transform = "";
   onboardingCover.style.opacity = "";
