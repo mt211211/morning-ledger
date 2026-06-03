@@ -1,4 +1,4 @@
-const CACHE = "morning-ledger-v6";
+const CACHE = "morning-ledger-v7";
 const ASSETS = ["/", "/styles.css", "/app.js", "/manifest.webmanifest", "/icons/icon-192.svg"];
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS))));
 self.addEventListener("activate", (event) => event.waitUntil(

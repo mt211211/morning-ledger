@@ -10,7 +10,6 @@ const notifyButton = document.querySelector("#notifyButton");
 const turnstileBox = document.querySelector("#turnstileBox");
 const turnstileWidget = document.querySelector("#turnstileWidget");
 const onboardingCover = document.querySelector("#onboardingCover");
-const startReading = document.querySelector("#startReading");
 
 let category = "all";
 let activeStory = null;
@@ -46,7 +45,6 @@ document.querySelector("#refreshButton").addEventListener("click", refreshNews);
 document.querySelector("#closeChat").addEventListener("click", () => dialog.close());
 document.querySelector("#chatForm").addEventListener("submit", askQuestion);
 notifyButton.addEventListener("click", enableMorningNotification);
-startReading.addEventListener("click", () => dismissOnboarding(true));
 onboardingCover.addEventListener("pointerdown", startOnboardingDrag);
 onboardingCover.addEventListener("pointermove", moveOnboardingDrag);
 onboardingCover.addEventListener("pointerup", endOnboardingDrag);
