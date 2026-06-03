@@ -14,6 +14,7 @@ let category = "all";
 let activeStory = null;
 let vapidPublicKey = "";
 let turnstileSiteKey = "";
+let activePushSubscription = null;
 
 const ARTICLE_QUESTIONS = [
   "Why does this matter?",
@@ -45,6 +46,7 @@ async function loadNews() {
   vapidPublicKey = data.vapid_public_key || "";
   turnstileSiteKey = data.turnstile_site_key || "";
   notifyButton.hidden = !vapidPublicKey;
+  if (vapidPublicKey) await syncNotificationButton();
   storiesElement.replaceChildren(...data.stories.map(renderStory));
   storyCount.textContent = `${data.stories.length} stories`;
   refreshStatus.textContent = data.updated_at
@@ -64,7 +66,7 @@ async function refreshNews() {
   } catch {
     refreshStatus.textContent = "Refresh failed. Please try again.";
   } finally {
-    icon.textContent = "R";
+    icon.innerHTML = "&#8635;";
   }
 }
 
@@ -184,6 +186,12 @@ async function enableMorningNotification() {
     notifyButton.textContent = "Notifications not supported here";
     return;
   }
+  const registration = await navigator.serviceWorker.ready;
+  activePushSubscription = await registration.pushManager.getSubscription();
+  if (activePushSubscription) {
+    await disableMorningNotification(activePushSubscription);
+    return;
+  }
   if (!vapidPublicKey) {
     notifyButton.textContent = "Notifications need push keys";
     return;
@@ -193,7 +201,6 @@ async function enableMorningNotification() {
     notifyButton.textContent = "Notifications not enabled";
     return;
   }
-  const registration = await navigator.serviceWorker.ready;
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
@@ -207,7 +214,26 @@ async function enableMorningNotification() {
     })
   });
   const data = await response.json();
-  notifyButton.textContent = data.ok ? "07:30 alert enabled" : "Could not enable alert";
+  activePushSubscription = subscription;
+  notifyButton.textContent = data.ok ? "07:30 alert on" : "Could not enable alert";
+}
+
+async function disableMorningNotification(subscription) {
+  await fetch("/api/notifications", {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ endpoint: subscription.endpoint })
+  });
+  await subscription.unsubscribe();
+  activePushSubscription = null;
+  notifyButton.textContent = "Notify me at 07:30";
+}
+
+async function syncNotificationButton() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  const registration = await navigator.serviceWorker.ready;
+  activePushSubscription = await registration.pushManager.getSubscription();
+  notifyButton.textContent = activePushSubscription ? "07:30 alert on - tap to stop" : "Notify me at 07:30";
 }
 
 function resetMessages(text) {

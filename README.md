@@ -12,6 +12,7 @@ Production: https://app.morning-ledger.workers.dev
 - Markets, company news, economy, personal finance, and crypto filters
 - Scheduled refresh at 07:30 local time and manual refresh at any time
 - Grounded chat responses with source links
+- Optional 07:30 local-time push notifications for installed PWAs
 - Offline shell for the most recently loaded interface
 - Preview mode with representative cards when running locally
 - Cloudflare Worker, D1, Cron Trigger, and Workers AI deployment
@@ -26,7 +27,9 @@ Turnstile is optional. Set `TURNSTILE_SITE_KEY` in `wrangler.jsonc` and `TURNSTI
 
 ## Notifications
 
-The schema and client subscription path are ready for iOS PWA Web Push, but production push sending requires VAPID keys and a Web Push sender. Do not commit VAPID private keys. Store private keys as Cloudflare secrets.
+Morning Ledger supports Web Push notifications for installed PWAs. Users can turn the 07:30 alert on or off from the site. When enabled, the scheduled Worker sends a no-payload push at the user's stored local 07:30; the service worker displays "Morning Ledger is ready" and opens the app when the notification is tapped.
+
+Set `VAPID_PUBLIC_KEY` in `wrangler.jsonc` and store `VAPID_PRIVATE_KEY` as a Cloudflare secret. Do not commit VAPID private keys.
 
 ## Privacy and repository hygiene
 

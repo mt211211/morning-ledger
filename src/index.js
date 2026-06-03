@@ -10,6 +10,7 @@ export default {
     if (url.pathname === "/api/chat" && request.method === "POST") return chatResponse(request, env);
     if (url.pathname === "/api/preferences" && request.method === "POST") return preferenceResponse(request, env);
     if (url.pathname === "/api/notifications" && request.method === "POST") return notificationResponse(request, env);
+    if (url.pathname === "/api/notifications" && request.method === "DELETE") return deleteNotificationResponse(request, env);
     return env.ASSETS.fetch(request);
   },
 
@@ -102,6 +103,15 @@ async function notificationResponse(request, env) {
   return json({ ok: true, message: "Morning notification saved." });
 }
 
+async function deleteNotificationResponse(request, env) {
+  if (!env.DB) return json({ ok: true, preview: true });
+  const body = await request.json();
+  const endpoint = String(body.endpoint || "");
+  if (!endpoint) return json({ error: "Missing push subscription endpoint." }, 400);
+  await env.DB.prepare("DELETE FROM notification_subscriptions WHERE endpoint = ?").bind(endpoint).run();
+  return json({ ok: true, message: "Morning notification disabled." });
+}
+
 async function scheduledRefresh(env) {
   const timezone = await getSetting(env, "timezone") || env.DEFAULT_TIMEZONE || "UTC";
   const localTime = new Intl.DateTimeFormat("en-GB", {
@@ -111,6 +121,7 @@ async function scheduledRefresh(env) {
     hour12: false
   }).format(new Date());
   if (localTime === "07:30") await refreshResponse(env, "scheduled");
+  await sendDueNotifications(env);
 }
 
 async function listStories(env, category = "all", limit = 60) {
@@ -195,6 +206,115 @@ function shortBullet(value) {
 
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function sendDueNotifications(env) {
+  if (!env.DB || !env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) return;
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const subscriptions = await env.DB.prepare(
+    "SELECT endpoint, subscription_json, timezone, last_sent_at FROM notification_subscriptions LIMIT 500"
+  ).all();
+  for (const row of subscriptions.results || []) {
+    const localTime = new Intl.DateTimeFormat("en-GB", {
+      timeZone: row.timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }).format(now);
+    if (localTime !== "07:30" || String(row.last_sent_at || "").startsWith(today)) continue;
+    const subscription = JSON.parse(row.subscription_json);
+    try {
+      await sendWebPush(subscription.endpoint, env);
+      await env.DB.prepare(
+        "UPDATE notification_subscriptions SET last_sent_at = ? WHERE endpoint = ?"
+      ).bind(now.toISOString(), row.endpoint).run();
+    } catch (error) {
+      if ([404, 410].includes(error.status)) {
+        await env.DB.prepare("DELETE FROM notification_subscriptions WHERE endpoint = ?").bind(row.endpoint).run();
+      }
+    }
+  }
+}
+
+async function sendWebPush(endpoint, env) {
+  const audience = new URL(endpoint).origin;
+  const jwt = await createVapidJwt(audience, env);
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      TTL: "43200",
+      Authorization: `vapid t=${jwt}, k=${env.VAPID_PUBLIC_KEY}`,
+      "Crypto-Key": `p256ecdsa=${env.VAPID_PUBLIC_KEY}`
+    }
+  });
+  if (!response.ok) {
+    const error = new Error(`Push failed: ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+}
+
+async function createVapidJwt(audience, env) {
+  const publicBytes = base64UrlToBytes(env.VAPID_PUBLIC_KEY);
+  const x = bytesToBase64Url(publicBytes.slice(1, 33));
+  const y = bytesToBase64Url(publicBytes.slice(33, 65));
+  const jwk = {
+    kty: "EC",
+    crv: "P-256",
+    x,
+    y,
+    d: env.VAPID_PRIVATE_KEY,
+    ext: true
+  };
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const header = bytesToBase64Url(new TextEncoder().encode(JSON.stringify({ typ: "JWT", alg: "ES256" })));
+  const payload = bytesToBase64Url(new TextEncoder().encode(JSON.stringify({
+    aud: audience,
+    exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60,
+    sub: "mailto:admin@morning-ledger.workers.dev"
+  })));
+  const input = `${header}.${payload}`;
+  const signature = new Uint8Array(await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    new TextEncoder().encode(input)
+  ));
+  return `${input}.${bytesToBase64Url(ecdsaToJose(signature))}`;
+}
+
+function ecdsaToJose(signature) {
+  if (signature.length === 64) return signature;
+  let offset = 3;
+  let rLength = signature[offset - 1];
+  if (signature[offset] === 0) {
+    offset += 1;
+    rLength -= 1;
+  }
+  const r = signature.slice(offset, offset + rLength);
+  offset += rLength + 2;
+  let sLength = signature[offset - 1];
+  if (signature[offset] === 0) {
+    offset += 1;
+    sLength -= 1;
+  }
+  const s = signature.slice(offset, offset + sLength);
+  const result = new Uint8Array(64);
+  result.set(r.slice(-32), 32 - Math.min(r.length, 32));
+  result.set(s.slice(-32), 64 - Math.min(s.length, 32));
+  return result;
+}
+
+function base64UrlToBytes(value) {
+  const padded = value + "=".repeat((4 - value.length % 4) % 4);
+  const binary = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function bytesToBase64Url(bytes) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 async function setSetting(env, key, value) {

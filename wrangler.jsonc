@@ -22,7 +22,7 @@
     "ENABLE_AI": "true",
     "AI_DAILY_IP_LIMIT": "60",
     "TURNSTILE_SITE_KEY": "",
-    "VAPID_PUBLIC_KEY": ""
+    "VAPID_PUBLIC_KEY": "BNUzHRdcKHs3O2AwmAbwtZxPKp701czoK4QdABaeXEkVKmDjYYSLIaAjbmt_VwKsCTX3zmuuiIyWkh-elKwMst4"
   },
   "triggers": {
     "crons": ["*/30 * * * *"]
